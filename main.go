@@ -1,10 +1,8 @@
 package main
 
 import (
-	"time"
-
 	_ "github.com/ottstask/configapi/internal/handler"
-	"github.com/ottstask/configapi/internal/meta"
+	"github.com/ottstask/configapi/pkg/meta"
 
 	"github.com/ottstask/configapi/internal/watcher"
 	"github.com/ottstask/gofunc"
@@ -12,18 +10,33 @@ import (
 )
 
 func main() {
-	val := &meta.MetaObject{
-		Services: map[string]*meta.ServiceInfo{
-			"abc":  {Name: "def"},
-			"abcd": {Name: "deff"},
+	// mock
+	ip := "192.168.2.124"
+	watcher.SetValue(meta.IngressKeyPrefix+ip, &meta.IngressConfig{
+		HostInfo: map[string]*meta.IngressHostInfo{
+			"127.0.0.1:8080": {
+				Addr:             "127.0.0.1:8080",
+				ConcurrencyLimit: 2,
+				QueueSource:      "local://",
+			},
 		},
-	}
-	watcher.SetValue("meta_object", val)
-	go func() {
-		time.Sleep(time.Second * 5)
-		val.Services["abc"].Name = "kkk"
-		watcher.SetValue("meta_object", val)
-	}()
+	})
+
+	watcher.SetValue(meta.EgressConfigKeyPrefix+ip, &meta.EgressConfig{
+		// DomainList:    map[string]bool{"abc": true},
+		HostNamespace: map[string]string{"127.0.0.1": "default"},
+	})
+
+	watcher.SetValue(meta.DomainConfigKeyPrefix+"abc.default", &meta.DomainConfig{
+		Domain: "abc.default",
+		IsZero: false,
+		DownStreams: map[int]*meta.DownStreamInfo{
+			0: {
+				Addr:        "127.0.0.1:8080",
+				IngressAddr: "127.0.0.1:17000",
+			},
+		},
+	})
 
 	gofunc.Use(middleware.Recover).Use(middleware.Validator)
 	gofunc.Serve()

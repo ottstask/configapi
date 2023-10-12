@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/ottstask/configapi/internal/meta"
+	"github.com/ottstask/configapi/pkg/meta"
 	"github.com/r3labs/diff/v3"
 )
 
@@ -17,11 +17,10 @@ const EventTypeDelete = "delete"
 const EventTypeUpdate = "update"
 const EventTypePatch = "patch"
 
-var allWatchers = sync.Map{}
+var allWatchers = newWatchMap()
 
 type configWatcher struct {
-	ch   chan *Event
-	keys []string
+	ch chan *Event
 }
 
 type Event struct {
@@ -49,19 +48,19 @@ func SetValue(key string, value meta.Cloneable) {
 	newValue := value.Clone()
 	valueMap.Store(key, newValue)
 
-	bs, _ := json.Marshal(newValue)
-
-	e := &Event{Key: key, JsonValue: bs, Type: EventTypeAdd}
 	if ok {
-		e.Type = EventTypePatch
 		changelog, err := diff.Diff(val, newValue)
 		if err != nil {
 			log.Println("cal diff error", err)
 			return
 		}
-		e.Patch = changelog
+		e := &Event{Key: key, Type: EventTypePatch, Patch: changelog}
+		emitEvent(e)
+	} else {
+		bs, _ := json.Marshal(newValue)
+		e := &Event{Key: key, Type: EventTypePatch, JsonValue: bs}
+		emitEvent(e)
 	}
-	emitEvent(e)
 }
 
 func DelValue(key string) {
@@ -73,52 +72,29 @@ func DelValue(key string) {
 	}
 }
 
-func emitEvent(e *Event) {
-	whs, ok := allWatchers.Load(e.Key)
-	if !ok {
-		return
-	}
-	watchers := whs.(*sync.Map)
-	watchers.Range(func(key, value interface{}) bool {
-		wh := key.(*configWatcher)
-		select {
-		case wh.ch <- e:
-		default:
-			log.Println("queue full for watcher", wh.keys)
-		}
-		return true
-	})
-}
-
 func NewWatcher() *configWatcher {
-	return &configWatcher{ch: make(chan *Event, 1000), keys: []string{}}
+	return &configWatcher{ch: make(chan *Event, 1000)}
 }
 
 func (w *configWatcher) SetKeys(keys []string) {
-	for _, key := range keys {
-		val, ok := allWatchers.Load(key)
-		if !ok {
-			// TODO: lock to init
-			allWatchers.Store(key, &sync.Map{})
-			val, _ = allWatchers.Load(key)
-		}
-		whs := val.(*sync.Map)
-		whs.Store(w, true)
-	}
-	w.keys = keys
+	allWatchers.setWatcher(w, keys)
 }
 
 func (w *configWatcher) Stop() {
-	for _, key := range w.keys {
-		val, ok := allWatchers.Load(key)
-		if !ok {
-			continue
-		}
-		whs := val.(*sync.Map)
-		whs.Delete(w)
-	}
+	allWatchers.stopWatcher(w)
 }
 
 func (w *configWatcher) Events() <-chan *Event {
 	return w.ch
+}
+
+func emitEvent(e *Event) {
+	whs := allWatchers.getWatcher(e.Key)
+	for _, wh := range whs {
+		select {
+		case wh.ch <- e:
+		default:
+			log.Println("queue full for watcher")
+		}
+	}
 }
