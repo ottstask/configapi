@@ -8,7 +8,6 @@ type IngressConfig struct {
 
 type IngressHostInfo struct {
 	Addr             string `json:"addr"`
-	Namespace        string `json:"namespace"`
 	ConcurrencyLimit int    `json:"concurrency_limit"`
 	QueueSource      string `json:"queue_source"`
 }

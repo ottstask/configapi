@@ -4,7 +4,7 @@ const EgressConfigKeyPrefix = "EgressConfig_"
 const DomainConfigKeyPrefix = "DomainConfig_"
 
 type EgressConfig struct {
-	HostNamespace map[string]string `json:"host_namespace"`
+	SourceNamespace map[string]string `json:"source_namespace"`
 }
 
 type DomainConfig struct {
@@ -22,9 +22,9 @@ type DownStreamInfo struct {
 
 func (s *EgressConfig) Clone() Cloneable {
 	n := &EgressConfig{}
-	n.HostNamespace = make(map[string]string)
-	for k, v := range s.HostNamespace {
-		n.HostNamespace[k] = v
+	n.SourceNamespace = make(map[string]string)
+	for k, v := range s.SourceNamespace {
+		n.SourceNamespace[k] = v
 	}
 	return n
 }

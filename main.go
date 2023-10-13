@@ -24,7 +24,7 @@ func main() {
 
 	watcher.SetValue(meta.EgressConfigKeyPrefix+ip, &meta.EgressConfig{
 		// DomainList:    map[string]bool{"abc": true},
-		HostNamespace: map[string]string{"127.0.0.1": "default"},
+		SourceNamespace: map[string]string{"127.0.0.1": "default"},
 	})
 
 	watcher.SetValue(meta.DomainConfigKeyPrefix+"abc.default", &meta.DomainConfig{
